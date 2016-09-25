@@ -1,3 +1,5 @@
+[![Gem Version](https://badge.fury.io/rb/dns-update.svg)](https://badge.fury.io/rb/dns-update)
+
 # dns-update
 Ruby Dynamic DNS Updater
 
