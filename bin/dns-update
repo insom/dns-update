@@ -66,4 +66,8 @@ tsig.key= options[:key]
 tsig.name= options[:key_name]
 res.tsig= tsig
 
-res.send_message(update)
+begin
+  res.send_message(update)
+rescue Dnsruby::TsigError
+  STDERR.puts "Your TSIG secret was rejected by the server"
+end
