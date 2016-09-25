@@ -4,39 +4,39 @@ require 'net/http'
 require 'json'
 require 'base64'
 require 'optparse'
- 
+
 options = {
-    url: 'http://jsonip.com/',
-    key_name: 'keyname',
-    key: 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=',
-    zone: 'insm.cf',
-    record: 'home.insm.cf',
-    nameserver: 'rho.insom.me.uk',
-    ttl: 300,
+  url: 'http://jsonip.com/',
+  key_name: 'keyname',
+  key: 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=',
+  zone: 'insm.cf',
+  record: 'home.insm.cf',
+  nameserver: 'rho.insom.me.uk',
+  ttl: 300
 }
 
 OptionParser.new do |opts|
-  opts.banner = "Usage: #{ $0 } [options]"
+  opts.banner = "Usage: #{$PROGRAM_NAME} [options]"
 
-  opts.on("-u", "--url URL", "JSON IP URL") do |v|
+  opts.on('-u', '--url URL', 'JSON IP URL') do |v|
     options[:url] = v
   end
-  opts.on("-e", "--key-name KEY-NAME", "Name of the TSIG key") do |v|
+  opts.on('-e', '--key-name KEY-NAME', 'Name of the TSIG key') do |v|
     options[:key_name] = v
   end
-  opts.on("-k", "--key KEY", "Base64 encoded TSIG key") do |v|
+  opts.on('-k', '--key KEY', 'Base64 encoded TSIG key') do |v|
     options[:key] = v
   end
-  opts.on("-z", "--zone ZONE", "DNS Zone to update") do |v|
+  opts.on('-z', '--zone ZONE', 'DNS Zone to update') do |v|
     options[:zone] = v
   end
-  opts.on("-r", "--record RECORD", "DNS Record to update") do |v|
+  opts.on('-r', '--record RECORD', 'DNS Record to update') do |v|
     options[:record] = v
   end
-  opts.on("-n", "--nameserver NAMESERVER", "Nameserver to update") do |v|
+  opts.on('-n', '--nameserver NAMESERVER', 'Nameserver to update') do |v|
     options[:nameserver] = v
   end
-  opts.on("-t", "--ttl TTL", Integer, "TTL of newly updated record") do |v|
+  opts.on('-t', '--ttl TTL', Integer, 'TTL of newly updated record') do |v|
     options[:ttl] = v
   end
 end.parse!
@@ -48,26 +48,27 @@ response = Net::HTTP.get(uri)
 j = JSON.parse(response)
 
 update = Dnsruby::Update.new(options[:zone])
-update.delete("#{ options[:record] }.", 'A')
-update.add("#{ options[:record] }.", 'A', options[:ttl], j['ip'])
+update.delete("#{options[:record]}.", 'A')
+update.add("#{options[:record]}.", 'A', options[:ttl], j['ip'])
 
-res = Dnsruby::Resolver.new({:nameserver => options[:nameserver]})
+res = Dnsruby::Resolver.new(nameserver: options[:nameserver])
 
 tsig = Dnsruby::RR::TSIG.new
-case decoded_key.length
+tsig.algorithm = \
+  case decoded_key.length
   when 32
-    tsig.algorithm= Dnsruby::RR::TSIG::HMAC_SHA256
+    Dnsruby::RR::TSIG::HMAC_SHA256
   when 20
-    tsig.algorithm= Dnsruby::RR::TSIG::HMAC_SHA1
+    Dnsruby::RR::TSIG::HMAC_SHA1
   else
-    tsig.algorithm= Dnsruby::RR::TSIG::HMAC_MD5
-end
-tsig.key= options[:key]
-tsig.name= options[:key_name]
-res.tsig= tsig
+    Dnsruby::RR::TSIG::HMAC_MD5
+  end
+tsig.key = options[:key]
+tsig.name = options[:key_name]
+res.tsig = tsig
 
 begin
   res.send_message(update)
 rescue Dnsruby::TsigError
-  STDERR.puts "Your TSIG secret was rejected by the server"
+  STDERR.puts 'Your TSIG secret was rejected by the server'
 end
