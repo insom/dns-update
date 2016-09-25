@@ -2,10 +2,13 @@
 require 'dnsruby'
 require 'net/http'
 require 'json'
+require 'base64'
  
 url = 'http://jsonip.com/'
 key_name = 'keyname'
-key = 'keygoeshere='
+key = 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA='
+
+decoded_key = Base64.decode64(key)
 
 uri = URI(url)
 response = Net::HTTP.get(uri)
@@ -18,7 +21,14 @@ update.add('home.insm.cf.', 'A', 300, j['ip'])
 res = Dnsruby::Resolver.new({:nameserver => 'rho.insom.me.uk'})
 
 tsig = Dnsruby::RR::TSIG.new
-tsig.algorithm= Dnsruby::RR::TSIG::HMAC_SHA256
+case decoded_key.length
+  when 32
+    tsig.algorithm= Dnsruby::RR::TSIG::HMAC_SHA256
+  when 20
+    tsig.algorithm= Dnsruby::RR::TSIG::HMAC_SHA1
+  else
+    tsig.algorithm= Dnsruby::RR::TSIG::HMAC_MD5
+end
 tsig.key= key
 tsig.name= key_name
 res.tsig= tsig
