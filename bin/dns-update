@@ -3,22 +3,55 @@ require 'dnsruby'
 require 'net/http'
 require 'json'
 require 'base64'
+require 'optparse'
  
-url = 'http://jsonip.com/'
-key_name = 'keyname'
-key = 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA='
+options = {
+    url: 'http://jsonip.com/',
+    key_name: 'keyname',
+    key: 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=',
+    zone: 'insm.cf',
+    record: 'home.insm.cf',
+    nameserver: 'rho.insom.me.uk',
+    ttl: 300,
+}
 
-decoded_key = Base64.decode64(key)
+OptionParser.new do |opts|
+  opts.banner = "Usage: #{ $0 } [options]"
 
-uri = URI(url)
+  opts.on("-u", "--url URL", "JSON IP URL") do |v|
+    options[:url] = v
+  end
+  opts.on("-e", "--key-name KEY-NAME", "Name of the TSIG key") do |v|
+    options[:key_name] = v
+  end
+  opts.on("-k", "--key KEY", "Base64 encoded TSIG key") do |v|
+    options[:key] = v
+  end
+  opts.on("-z", "--zone ZONE", "DNS Zone to update") do |v|
+    options[:zone] = v
+  end
+  opts.on("-r", "--record RECORD", "DNS Record to update") do |v|
+    options[:record] = v
+  end
+  opts.on("-n", "--nameserver NAMESERVER", "Nameserver to update") do |v|
+    options[:nameserver] = v
+  end
+  opts.on("-t", "--ttl TTL", Integer, "TTL of newly updated record") do |v|
+    options[:ttl] = v
+  end
+end.parse!
+
+decoded_key = Base64.decode64(options[:key])
+
+uri = URI(options[:url])
 response = Net::HTTP.get(uri)
 j = JSON.parse(response)
 
-update = Dnsruby::Update.new('insm.cf')
-update.delete('home.insm.cf.', 'A')
-update.add('home.insm.cf.', 'A', 300, j['ip'])
+update = Dnsruby::Update.new(options[:zone])
+update.delete("#{ options[:record] }.", 'A')
+update.add("#{ options[:record] }.", 'A', options[:ttl], j['ip'])
 
-res = Dnsruby::Resolver.new({:nameserver => 'rho.insom.me.uk'})
+res = Dnsruby::Resolver.new({:nameserver => options[:nameserver]})
 
 tsig = Dnsruby::RR::TSIG.new
 case decoded_key.length
@@ -29,8 +62,8 @@ case decoded_key.length
   else
     tsig.algorithm= Dnsruby::RR::TSIG::HMAC_MD5
 end
-tsig.key= key
-tsig.name= key_name
+tsig.key= options[:key]
+tsig.name= options[:key_name]
 res.tsig= tsig
 
 res.send_message(update)
